@@ -63,6 +63,7 @@
   .check li.howp { display: block; padding: 0 14px 12px 52px; border-top: 0; }
   .check li.howp p { margin: 0 0 6px; font-size: 14px; color: var(--ink); background: var(--panel-2); padding: 10px 12px; border-radius: 10px; }
   .check li.howp a { color: var(--ink-2); font-size: 13px; text-decoration: underline; }
+  .box.num { border: 0; background: var(--panel-2); color: var(--ink-2); font-size: 13px; font-weight: 600; }
   .box { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--ink-3); display: grid; place-items: center; flex: 0 0 auto; }
   li.done .box { background: var(--up); border-color: var(--up); color: var(--bg); }
   li.done .txt { color: var(--ink-3); text-decoration: line-through; }
@@ -127,7 +128,7 @@
   details.how p { margin: 4px 0 6px; font-size: 14px; color: var(--ink); background: var(--panel-2); padding: 10px 12px; border-radius: 10px; }
   .ytnote { font-size: 13px; color: var(--ink-2); background: var(--panel-2); padding: 8px 10px; border-radius: 8px; margin-top: 6px; }
   .ytnote b { color: var(--accent); }
-  details.how a, .ytb { color: var(--ink-2); font-size: 13px; text-decoration: underline; padding: 4px 0; }
+  .ytb { color: var(--ink-2); font-size: 13px; text-decoration: underline; padding: 4px 0; }
   details.how img { width: 100%; border-radius: 10px; display: block; margin: 4px 0 6px; }
   details.how .where { font-size: 13px; color: var(--ink-2); margin-bottom: 6px; }
   .badge { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; margin-bottom: 8px; }
@@ -165,6 +166,7 @@
   .bar .save.saved { background: var(--up); }
   .bar .timer { width: 96px; height: 54px; border-radius: 16px; background: var(--panel-2); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; }
   .bar .timer.run { background: var(--ink); color: var(--bg); }
+  .bar .timer.over { background: var(--accent); color: var(--accent-ink); }
 
   .rest { background: var(--panel); border-radius: var(--radius); padding: 18px 16px; color: var(--ink-2); }
   .rest b { color: var(--ink); }
@@ -331,7 +333,7 @@ function M(key, d, fibers, state) {
   const id = 'c' + (clipSeq++);
   return `<clipPath id="${id}"><path d="${d}"/></clipPath><g class="mu ${state}"><path d="${d}"/><g class="fib" clip-path="url(#${id})">${fibers}</g><path d="${d}" class="edge"/></g>`;
 }
-function mir(svgFrag) { return `<g transform="translate(200,0) scale(-1,1)">${svgFrag}</g>`; }
+function mir(svgFrag) { return `<g transform="translate(200,0) scale(-1,1)">${svgFrag.replace(/id="(c\d+)"/g, 'id="$1m"').replace(/url\(#(c\d+)\)/g, 'url(#$1m)')}</g>`; }
 
 // 각 부위 그림: (state 함수) => svg 내부
 const VIEWS = {
@@ -438,7 +440,6 @@ function locFig(view) {
 
 function bodyFig(view, mp, ms) {
   const v = VIEWS[view]; if (!v) return '';
-  clipSeq = 0;
   const st = k => mp.includes(k) ? 'mp' : ms.includes(k) ? 'ms' : 'm0';
   const h = VIEW_H[view] || 172;
   return `<svg viewBox="0 0 200 ${h}" class="anat">${v.build(st)}</svg>`;
@@ -566,7 +567,7 @@ const $ = id => document.getElementById(id);
 
 function render() {
   const p = PLAN[viewDay];
-  $('dateLine').textContent = fmtDate(viewDate) + (viewDay !== today.getDay() ? ' 에 기록됨' : '');
+  $('dateLine').textContent = fmtDate(viewDate) + (viewDay !== today.getDay() ? ' · 다른 요일 계획을 오늘 기록으로' : '');
   $('title').innerHTML = p.rest ? '휴식<small>가벼운 산책이나 교정 루틴만</small>' : `${DAYNAMES[viewDay]} · ${p.name}<small>${p.sub}</small>`;
 
   const days = $('days'); days.innerHTML = '';
@@ -594,7 +595,7 @@ function render() {
   m.appendChild(checklistSection('준비 5:00~5:18', warm));
 
   const sec = document.createElement('section');
-  sec.innerHTML = `<h2>근력 5:18~6:05<span>휴식 ${p.short ? '60' : '복합 120 · 나머지 90'}초</span></h2>`;
+  sec.innerHTML = `<h2>근력 5:18~6:05<span>세트 사이 ${p.short ? '60초' : '복합 2분 · 나머지 90초'} · 운동 바꿀 때 2~3분</span></h2>`;
   p.ex.forEach(e => sec.appendChild(exerciseCard(e, p)));
   m.appendChild(sec);
 
@@ -620,10 +621,8 @@ function checklistSection(title, items) {
     ul.appendChild(li);
     if (it.how) {
       const panel = document.createElement('li'); panel.className = 'howp'; panel.style.display = 'none';
-      const ytq = it.yt || it.t;
-      const yt = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(ytq);
-      panel.innerHTML = `<div><p>${it.how}</p><button class="ytb" data-url="${yt}" data-q="${ytq}">영상으로 보기 (YouTube)</button></div>`;
-      panel.onclick = ev => ev.stopPropagation();
+      panel.innerHTML = `<div><p>${it.how}</p></div>`;
+      panel.firstChild.appendChild(ytButton(it.yt || it.t));
       li.querySelector('.q').onclick = ev => { ev.stopPropagation(); panel.style.display = panel.style.display === 'none' ? '' : 'none'; };
       ul.appendChild(panel);
     }
@@ -643,17 +642,16 @@ function exerciseCard(e, plan) {
     const rows = [last, ...(last.prev || [])].map((h, i) => `<div><span>${i === 0 ? '지난번' : i === 1 ? '그 전' : '그그 전'} ${h.date.slice(5).replace('-', '/')}</span>${fmtSets(h.sets)}</div>`).join('');
     badge = `<div class="prevbox"><b>지난 기록</b>${rows}</div>` + badge;
   } else badge = `<div class="prevbox"><b>지난 기록</b><div>첫 기록이에요. 가볍게 시작해서 자세부터.</div></div>` + badge;
-  const ytq = e.m + ' 자세';
-  const yt = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(ytq);
   card.innerHTML = `
     <div class="ex-head"><div class="name">${e.m}</div><div class="target">${e.sets}×${e.lo === e.hi ? e.lo : e.lo + '~' + e.hi}${unit === '회' ? '' : unit}</div></div>
     <div class="machine">${e.n}</div>
     ${e.cue ? `<div class="cue">${e.cue}</div>` : ''}
     ${e.mp ? `<div class="musrow">${bodyFig(e.view, e.mp, e.ms || [])}${locFig(e.view)}<div class="muslist"><div class="vt">${VIEWS[e.view].title}</div><div><i class="dot p"></i>${e.mp.map(k => MUSCLE_KO[k]).join(', ')}</div>${(e.ms || []).length ? `<div><i class="dot s"></i>${e.ms.map(k => MUSCLE_KO[k]).join(', ')}</div>` : ''}<small>집중: ${MUSCLE_KO[e.mp[0]].split('(')[0]}에 힘이 들어가는지 느끼며</small></div></div>` : ''}
-    <details class="how"><summary>어떻게 하나요</summary>${e.img ? `<img src="${IMG[e.img]}" alt="" loading="lazy"><div class="where">${e.where}</div>` : ''}<p>${e.how}</p><button class="ytb" data-url="${yt}" data-q="${ytq}">영상으로 보기 (YouTube)</button></details>
+    <details class="how"><summary>어떻게 하나요</summary>${e.img ? `<img src="${IMG[e.img]}" alt="" loading="lazy"><div class="where">${e.where}</div>` : ''}<p>${e.how}</p></details>
     ${badge}
     <div class="tempo">내릴 때 2~3초 · 1~2개 남기고 멈춤${e.vid ? ' · <b>자세 영상 추천</b>: 옆에서 10~15초 찍어 코치에게' : ''}</div>
     <div class="sub"><span></span><span>${e.bw ? '' : '무게'}</span><span>${unit === '회' ? '횟수' : unit}</span><span></span></div>`;
+  card.querySelector('details.how').appendChild(ytButton(e.m + ' 자세'));
   const sets = session.ex[e.id];
   sets.forEach((s, i) => {
     const row = document.createElement('div'); row.className = 'set' + (s.done ? ' done' : '');
@@ -756,21 +754,26 @@ function noteSection() {
 function markDirty() { dirty = true; const b = $('saveBtn'); b.textContent = '저장'; b.classList.remove('saved'); }
 
 async function switchDay(d) {
+  if (d === viewDay) return;
   if (dirty && !confirm('저장하지 않은 내용이 있어요. 이동할까요?')) return;
+  const saved = await store.get('session:' + todayKey);
+  if (saved && saved.day !== d && hasProgress(saved) && !confirm(`오늘 이미 "${PLAN[saved.day].rest ? '휴식' : PLAN[saved.day].name}" 기록이 있어요. ${PLAN[d].rest ? '휴식' : PLAN[d].name}(으)로 바꿔 저장하면 그 기록은 지워집니다. 바꿀까요?`)) return;
   viewDay = d;
   await loadSession();
   render();
   window.scrollTo(0, 0);
 }
 
-async function loadSession() {
-  // 오늘 요일이면 오늘 날짜의 기록을 불러오고, 다른 요일이면 그 요일 계획을 오늘 날짜로 새로 연다
+// 기록은 항상 "오늘 날짜"에 저장된다. 요일 버튼은 오늘 어떤 계획을 할지 고르는 용도.
+async function loadSession(followSaved) {
   viewDate = todayKey;
   const saved = await store.get('session:' + todayKey);
+  if (saved && followSaved) viewDay = saved.day;
   if (saved && saved.day === viewDay) { session = saved; ensureShape(); }
   else session = blankSession(viewDay);
   dirty = false;
 }
+function hasProgress(s) { return !!s && (Object.values(s.ex || {}).some(sets => sets.some(x => x.done)) || Object.keys(s.checks || {}).length > 0 || +s.protein > 0); }
 
 // 계획이 바뀌어도 저장된 세션이 깨지지 않게 보정
 function ensureShape() {
@@ -800,22 +803,49 @@ async function save() {
     }
   }
   const ok2 = await store.set('latest', latest);
-  if (ok1 && ok2) { dirty = false; b.textContent = '저장됨'; b.classList.add('saved'); toast('저장됐어요'); await loadRecent14(); const cs = document.querySelector('.coach'); if (cs) { const c = coachSummary(recent14); cs.innerHTML = c.msgs.map(t => `<p>${t}</p>`).join('') + `<div class="tip">오늘의 원칙: ${c.tip}</div>`; } }
+  if (ok1 && ok2) { dirty = false; b.textContent = '저장됨'; b.classList.add('saved'); toast('저장됐어요'); await loadRecent14(); const old = $('main').querySelector('section'); if (old) old.replaceWith(coachSection()); }
   else { b.textContent = '저장'; toast('저장하지 못했어요. 다시 눌러 주세요'); }
 }
 
-let timerEnd = 0, timerTick = null;
+// ---------- 휴식 타이머 (소리 + 진동 + 초과 경고) ----------
+let timerEnd = 0, timerTick = null, audioCtx = null, warned10 = false, overWarned = false;
+function beep(freq, ms, when) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = freq; o.connect(g); g.connect(audioCtx.destination);
+    const t = audioCtx.currentTime + (when || 0);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
+    o.start(t); o.stop(t + ms / 1000 + 0.05);
+  } catch (e) {}
+}
 function startTimer(sec) {
-  timerEnd = Date.now() + sec * 1000;
-  const b = $('timerBtn'); b.classList.add('run');
+  timerEnd = Date.now() + sec * 1000; warned10 = false; overWarned = false;
+  beep(660, 60);                       // 사용자 터치 직후라 오디오 허용됨 (짧은 시작음)
+  const b = $('timerBtn'); b.classList.add('run'); b.classList.remove('over');
   clearInterval(timerTick);
   timerTick = setInterval(() => {
     const left = Math.ceil((timerEnd - Date.now()) / 1000);
-    if (left <= 0) { stopTimer(); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (e) {} toast('휴식 끝, 다음 세트'); return; }
-    b.textContent = `${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}`;
+    if (left > 0) {
+      b.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+      if (left <= 10 && !warned10) { warned10 = true; beep(880, 120); }
+      return;
+    }
+    if (left === 0 || (!b.classList.contains('over'))) {
+      if (!b.classList.contains('over')) {
+        b.classList.add('over');
+        beep(880, 150, 0); beep(880, 150, 0.25); beep(1175, 350, 0.5);
+        try { navigator.vibrate && navigator.vibrate([300, 100, 300, 100, 500]); } catch (e) {}
+        toast('휴식 끝, 다음 세트');
+      }
+    }
+    const over = -left;
+    b.textContent = `+${Math.floor(over / 60)}:${String(over % 60).padStart(2, '0')}`;
+    if (over >= 60 && !overWarned) { overWarned = true; beep(440, 300); toast('휴식이 1분 넘게 길어졌어요. 다음 세트로!'); }
   }, 250);
 }
-function stopTimer() { clearInterval(timerTick); timerTick = null; const b = $('timerBtn'); b.classList.remove('run'); b.textContent = '휴식'; }
+function stopTimer() { clearInterval(timerTick); timerTick = null; const b = $('timerBtn'); b.classList.remove('run', 'over'); b.textContent = '휴식'; }
 $('timerBtn').onclick = () => { if (timerTick) stopTimer(); else startTimer(90); };
 
 let toastT;
@@ -823,21 +853,21 @@ function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add
 
 $('saveBtn').onclick = save;
 
-function openLink(url, q, btn) {
-  let w = null;
-  try { w = window.open(url, '_blank', 'noopener'); } catch (e) {}
-  if (w) return;
-  // 이 화면(예: Claude 앱 미리보기)에서는 외부 사이트 열기가 막혀 있음: 검색어를 대신 보여 준다
-  let note = btn.nextElementSibling;
-  if (!note || !note.classList.contains('ytnote')) { note = document.createElement('div'); note.className = 'ytnote'; btn.after(note); }
-  note.innerHTML = `이 화면에서는 링크가 열리지 않아요. 유튜브 앱에서 <b>${q}</b> 로 검색해 보세요. (Chrome이나 홈 화면 앱으로 열면 바로 열립니다)`;
-  if (navigator.clipboard) navigator.clipboard.writeText(q).then(() => toast('검색어를 복사했어요'), () => {});
+function ytButton(q) {
+  const url = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
+  const b = document.createElement('button'); b.className = 'ytb'; b.textContent = '영상으로 보기 (YouTube)';
+  b.onclick = ev => {
+    ev.preventDefault(); ev.stopPropagation();
+    let w = null; try { w = window.open(url, '_blank'); } catch (e) {}
+    if (w) { try { w.opener = null; } catch (e) {} return; }
+    // 외부 링크가 막힌 화면(예: Claude 앱 미리보기): 검색어를 보여 주고 복사
+    let note = b.nextElementSibling;
+    if (!note || !note.classList.contains('ytnote')) { note = document.createElement('div'); note.className = 'ytnote'; b.after(note); }
+    note.innerHTML = `이 화면에서는 링크가 열리지 않아요. 유튜브 앱에서 <b>${q}</b> 로 검색해 보세요. (Chrome이나 홈 화면 앱으로 열면 바로 열립니다)`;
+    if (navigator.clipboard) navigator.clipboard.writeText(q).then(() => toast('검색어를 복사했어요'), () => {});
+  };
+  return b;
 }
-document.addEventListener('click', ev => {
-  const b = ev.target.closest('.ytb'); if (!b) return;
-  ev.preventDefault(); ev.stopPropagation(); openLink(b.dataset.url, b.dataset.q, b);
-});
-
 
 // ---------- 체형 기록 (사진: IndexedDB, 둘레: store) ----------
 const ANGLES = [['f', '앞'], ['l', '왼쪽 옆'], ['r', '오른쪽 옆'], ['b', '뒤']];
@@ -890,7 +920,10 @@ async function renderBody() {
   const intro = document.createElement('section');
   intro.innerHTML = `<h2>체형 기록<span>한 달에 한 번</span></h2><div class="coach">${last ? `<p>마지막 기록 ${fmtDate(last)} (${daysAgo}일 전)${daysAgo >= 28 ? '. 이번 달 사진과 둘레를 남길 때예요.' : '.'}</p>` : '<p>운동 시작 전 지금 찍어 두는 첫 사진이 가장 가치 있어요.</p>'}<div class="tip">사진은 이 폰 안에만 저장됩니다. 코칭을 받으려면 비교 화면을 캡처해서 Claude에 올려 주세요.</div></div>`;
   m.appendChild(intro);
-  m.appendChild(checklistSection('촬영 가이드', PHOTO_GUIDE));
+  const gsec = document.createElement('section'); gsec.innerHTML = '<h2>촬영 가이드</h2>';
+  const gul = document.createElement('ul'); gul.className = 'check';
+  PHOTO_GUIDE.forEach((it, i) => { const li = document.createElement('li'); li.innerHTML = `<div class="box num">${i + 1}</div><div class="txt">${it.t}${it.s ? `<small>${it.s}</small>` : ''}</div>`; gul.appendChild(li); });
+  gsec.appendChild(gul); m.appendChild(gsec);
 
   // 2) 오늘 기록
   const sec = document.createElement('section'); sec.innerHTML = `<h2>오늘 기록<span>${fmtDate(todayKey)}</span></h2>`;
@@ -901,7 +934,8 @@ async function renderBody() {
     const blob = pkeys.includes(key) ? await photoGet(key) : null;
     cell.innerHTML = blob ? `<img src="${URL.createObjectURL(blob)}"><span>${n}</span>` : `<div class="ph">+</div><span>${n}</span>`;
     const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
-    cell.onclick = () => inp.click();
+    cell.onclick = ev => { if (ev.target !== inp) inp.click(); };
+    inp.onclick = ev => ev.stopPropagation();
     inp.onchange = async () => { if (!inp.files[0]) return; try { const b = await shrink(inp.files[0], 1000); await photoPut(key, b); toast('저장했어요'); renderBody(); } catch (e) { toast('사진을 저장하지 못했어요'); } };
     cell.appendChild(inp); grid.appendChild(cell);
   }
@@ -1191,7 +1225,7 @@ if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   latest = (await store.get('latest')) || {};
   await loadRecent14();
   await checkBodyReminder();
-  await loadSession();
+  await loadSession(true);
   render();
 })();
 </script>
